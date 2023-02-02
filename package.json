@@ -1,0 +1,26 @@
+{
+  "scripts": {
+    "build": "sls package --stage main",
+    "deploy": "sls deploy --stage main"
+  },
+  "dependencies": {
+    "@shelf/aws-lambda-libreoffice": "^5.0.1",
+    "node": "^18.13.0"
+  },
+  "devDependencies": {
+    "@trivago/prettier-plugin-sort-imports": "^4.0.0",
+    "aws-sdk": "^2.1307.0",
+    "eslint": "^8.33.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-config-prettier": "^8.6.0",
+    "eslint-plugin-import": "^2.27.5",
+    "eslint-plugin-prettier": "^4.2.1",
+    "prettier": "^2.8.3"
+  },
+  "name": "serverless-libreoffice",
+  "version": "1.0.0",
+  "main": "handler.js",
+  "repository": "https://www.github.com/vitallhealth/serverless-libreoffice.git",
+  "author": "VITALL",
+  "license": "MIT"
+}

@@ -1,0 +1,31 @@
+{
+  "extends": [
+    "eslint:recommended",
+    "plugin:prettier/recommended",
+    "prettier",
+    "airbnb-base"
+  ],
+  "parserOptions": {
+    "ecmaVersion": 2018,
+    "sourceType": "module"
+  },
+  "root": true,
+  "env": {
+    "node": true
+  },
+  "ignorePatterns": [".eslintrc"],
+  "rules": {
+    "prefer-template": ["error"],
+    "no-unused-vars": ["error"],
+    "no-duplicate-imports": ["error"],
+    "prettier/prettier": [
+      "error",
+      {
+        "endOfLine": "auto"
+      }
+    ],
+    "semi": ["error", "always"],
+    "quotes": ["error", "double"],
+    "import/no-extraneous-dependencies": ["warn"]
+  }
+}
