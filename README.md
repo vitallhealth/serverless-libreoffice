@@ -11,7 +11,7 @@ AWS Lambda DOCX to PDF converter using LibreOffice
 ## Installation
 
 ```bash
-yarn install
+npm install
 ```
 
 ## Development
