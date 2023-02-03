@@ -51,18 +51,28 @@ import AWS from "aws-sdk";
 
 async function convertToPdf(): Promise<string> {
   const lambda = new AWS.Lambda();
-  const params: AWS.Lambda.InvokeAsyncRequest = {
-    FunctionName: "docx-to-pdf-converter",
-    InvokeArgs: `{ "bucket": "s3_bucket", "key": "s3_key"}`,
+  const payload = {
+      bucket: 'bucket_name',
+      key: 's3_key.docx',
+  };
+  const params: AWS.Lambda.InvocationRequest = {
+    FunctionName: 'docx-to-pdf-converter',
+    Payload: JSON.stringify(payload),
+    InvocationType: 'RequestResponse',
   };
   const response = await lambda
-    .invokeAsync(params, (err) => {
+    .invoke(params, (err) => {
       if (err) {
         throw err;
       }
     })
     .promise();
-  return response;
+
+  const result = JSON.parse(response.Payload as string);
+  if (!('Key' in result)) {
+    throw new Error('File could not be converted to PDF');
+  }
+  return result.Key;
 }
 ```
 
