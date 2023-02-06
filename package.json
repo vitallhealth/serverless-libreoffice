@@ -5,7 +5,7 @@
   },
   "dependencies": {
     "@shelf/aws-lambda-libreoffice": "^5.0.1",
-    "node": "^18.13.0"
+    "node": "^16.19.0"
   },
   "devDependencies": {
     "@trivago/prettier-plugin-sort-imports": "^4.0.0",
