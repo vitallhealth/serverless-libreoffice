@@ -3,7 +3,6 @@ const {
   convertTo,
   canBeConvertedToPDF,
 } = require("@shelf/aws-lambda-libreoffice");
-// eslint-disable-next-line import/no-extraneous-dependencies
 const { S3 } = require("aws-sdk");
 const path = require("path");
 
@@ -36,5 +35,5 @@ module.exports.handler = async ({ bucket, key }) => {
     })
     .promise();
 
-  return pdfKey;
+  return { Key: pdfKey };
 };
