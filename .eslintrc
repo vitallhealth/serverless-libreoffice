@@ -26,6 +26,8 @@
     ],
     "semi": ["error", "always"],
     "quotes": ["error", "double"],
-    "import/no-extraneous-dependencies": ["warn"]
+    "import/no-extraneous-dependencies": 0,
+    "comma-dangle": 0,
+    "object-curly-newline": 0
   }
 }
