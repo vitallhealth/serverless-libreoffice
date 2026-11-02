@@ -1,10 +1,9 @@
-FROM public.ecr.aws/shelf/lambda-libreoffice-base:7.4-node16-x86_64
+FROM public.ecr.aws/shelf/lambda-libreoffice-base:26.2-node24-x86_64
 
-COPY ./ ${LAMBDA_TASK_ROOT}/
+COPY package.json package-lock.json ${LAMBDA_TASK_ROOT}/
 
-# Dependency not supplied by lambda-libreoffice-base image
-RUN yum install java-1.8.0-openjdk-devel -y
+RUN npm ci --omit=dev
 
-RUN npm install
+COPY handler.js ${LAMBDA_TASK_ROOT}/
 
 CMD [ "handler.handler" ]

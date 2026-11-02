@@ -10,13 +10,25 @@ AWS Lambda DOCX to PDF converter using LibreOffice
 
 ## Installation
 
+Requires Node.js 24 or newer.
+
 ```bash
 npm install
 ```
 
 ## Development
 
-Make changes to `handler.js` as needed
+Make changes to `handler.js` as needed. It is an ES module and uses AWS SDK v3, since the Node.js 24 Lambda runtime doesn't bundle SDK v2.
+
+The image is built on `public.ecr.aws/shelf/lambda-libreoffice-base:26.2-node24-x86_64` (LibreOffice 26.2, Amazon Linux 2023). The base image is x86_64 only, so the Lambda function's architecture MUST be `x86_64`.
+
+To run the image locally with the Lambda Runtime Interface Emulator:
+
+```
+docker build --platform linux/amd64 -t docx-to-pdf-converter .
+docker run --platform linux/amd64 -p 9000:8080 -e AWS_REGION=ca-central-1 -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_SESSION_TOKEN docx-to-pdf-converter
+curl -XPOST localhost:9000/2015-03-31/functions/function/invocations -d '{"bucket":"bucket_name","key":"s3_key.docx"}'
+```
 
 ### Deployment
 
@@ -30,8 +42,10 @@ aws ecr create-repository --repository-name docx-to-pdf-converter --image-scanni
 
 Once the ECR repository has been created, run the following to build, tag, and push the image to ECR
 
+`--provenance=false` keeps the push to a single image manifest, which Lambda accepts. Without it, Docker Desktop may push a manifest list that Lambda rejects.
+
 ```
-docker build -t docx-to-pdf-converter .
+docker build --platform linux/amd64 --provenance=false -t docx-to-pdf-converter .
 
 docker tag  docx-to-pdf-converter:latest <AWS ACCOUNT ID>.dkr.ecr.ca-central-1.amazonaws.com/docx-to-pdf-converter:latest
 
