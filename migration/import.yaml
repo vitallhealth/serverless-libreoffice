@@ -1,0 +1,51 @@
+# One-time import of the console-made production converter into docx-to-pdf-converter-main.
+# Properties match the live resources so the import changes nothing. Run it once (README), then
+# deploy template.yaml. This file can be deleted after the import.
+AWSTemplateFormatVersion: "2010-09-09"
+Description: DOCX to PDF converter (LibreOffice)
+
+Resources:
+  ConverterLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      LogGroupName: /aws/lambda/docx-to-pdf-converter
+      RetentionInDays: 365
+
+  ConverterRole:
+    Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RoleName: docx-to-pdf-converter-role-s30byqzk
+      Path: /service-role/
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/service-role/AWSLambdaBasicExecutionRole-735f5860-12b2-4d81-81b0-d5f23e7dbde0
+
+  ConverterFunction:
+    Type: AWS::Lambda::Function
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      FunctionName: docx-to-pdf-converter
+      PackageType: Image
+      Code:
+        ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/docx-to-pdf-converter@sha256:113d1d4ec9ba824ce1e6227cc8142cd76e00a10b45ccd2933e9ea7cc8681b139
+      Architectures:
+        - x86_64
+      MemorySize: 3008
+      EphemeralStorage:
+        Size: 3008
+      Timeout: 45
+      Role: !GetAtt ConverterRole.Arn
+      LoggingConfig:
+        LogFormat: Text
+        LogGroup: /aws/lambda/docx-to-pdf-converter

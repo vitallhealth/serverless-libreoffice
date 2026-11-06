@@ -1,0 +1,58 @@
+# Deploys each PR to its own docx-to-pdf-converter-pr-<n> stack, converts a fixture through it, and deletes
+# the stack when the PR closes. Runs as gha-serverless-libreoffice-pr, which can only touch
+# docx-to-pdf-converter-pr-* resources. Needs the docx-to-pdf-converter-main stack, which owns the PR log group,
+# ECR repo and fixtures bucket.
+name: PR stack
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: pr-stack-${{ github.event.pull_request.number }}
+  # A teardown MUST NOT cancel a deploy halfway, or the stack can be left mid-update.
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ca-central-1
+  STAGE: pr-${{ github.event.pull_request.number }}
+
+jobs:
+  deploy:
+    # Dependabot and fork PRs can't get an OIDC token for this repo's environment.
+    if: >-
+      github.event.action != 'closed' &&
+      github.actor != 'dependabot[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    environment: pr
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/gha-serverless-libreoffice-pr
+          aws-region: ${{ env.AWS_REGION }}
+      - run: scripts/deploy-stack.sh "$STAGE" pr
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils
+      - run: scripts/verify-stack.sh "docx-to-pdf-converter-$STAGE" "$STAGE"
+
+  teardown:
+    if: >-
+      github.event.action == 'closed' &&
+      github.actor != 'dependabot[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    environment: pr
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/gha-serverless-libreoffice-pr
+          aws-region: ${{ env.AWS_REGION }}
+      # Images expire through the docx-to-pdf-converter-pr lifecycle rule and logs through the group's retention.
+      - run: |
+          aws cloudformation delete-stack --stack-name "docx-to-pdf-converter-$STAGE"
+          aws cloudformation wait stack-delete-complete --stack-name "docx-to-pdf-converter-$STAGE"
