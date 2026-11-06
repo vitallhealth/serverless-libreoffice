@@ -4,13 +4,13 @@
     "@shelf/aws-lambda-libreoffice": "^9.0.2"
   },
   "devDependencies": {
-    "@trivago/prettier-plugin-sort-imports": "^4.0.0",
-    "eslint": "^8.33.0",
+    "@trivago/prettier-plugin-sort-imports": "^6.0.2",
+    "eslint": "^10.14.0",
     "eslint-config-airbnb-base": "^15.0.0",
-    "eslint-config-prettier": "^8.6.0",
+    "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "^2.27.5",
-    "eslint-plugin-prettier": "^4.2.1",
-    "prettier": "^2.8.3"
+    "eslint-plugin-prettier": "^5.5.7",
+    "prettier": "^3.9.10"
   },
   "name": "serverless-libreoffice",
   "version": "1.0.0",
