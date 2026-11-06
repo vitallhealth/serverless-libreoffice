@@ -30,3 +30,11 @@ jobs:
       - run: scripts/deploy-stack.sh main production
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils
       - run: scripts/verify-stack.sh docx-to-pdf-converter main
+      # Kept for failed runs too: the PDF and raw response are the quickest way to see what went wrong.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verify-main-${{ github.sha }}
+          path: verify-output/
+          if-no-files-found: ignore
+          retention-days: 14

@@ -39,6 +39,8 @@ curl -XPOST localhost:9000/2015-03-31/functions/function/invocations -d '{"bucke
 
 Both workflows run `scripts/deploy-stack.sh` and `scripts/verify-stack.sh`, under the OIDC roles `gha-serverless-libreoffice-production` and `gha-serverless-libreoffice-pr` from admin-dev-ops. The repo needs a `AWS_ACCOUNT_ID` variable and two GitHub Environments: `production`, limited to `main`, and `pr`.
 
+Each run uploads the check's fixture, payload, raw response, log tail and PDF as a `verify-<stage>-<sha>` artifact, kept for 14 days, failed runs included.
+
 The main stack also owns what the PR stacks share: the `/aws/lambda/docx-to-pdf-converter-pr` log group, the `docx-to-pdf-converter-pr` ECR repo (images expire after 14 days) and the `docx-to-pdf-converter-pr-fixtures-<account>` bucket (objects expire after a day). The deploy roles can't delete log groups or S3 objects, so a PR stack MUST NOT create either.
 
 #### Importing the console-made function (one time)
