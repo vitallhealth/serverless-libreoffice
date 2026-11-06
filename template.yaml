@@ -1,0 +1,142 @@
+# DOCX to PDF converter. One stack per stage: docx-to-pdf-converter-main is production (callers
+# invoke the function as docx-to-pdf-converter), docx-to-pdf-converter-pr-<n> are throwaway PR stacks.
+# The production function, role and log group predate this template and were imported with
+# migration/import.yaml. Deployed with `aws cloudformation deploy` by scripts/deploy-stack.sh.
+AWSTemplateFormatVersion: "2010-09-09"
+Description: DOCX to PDF converter (LibreOffice)
+
+Parameters:
+  Stage:
+    Type: String
+    AllowedPattern: "^(main|pr-[0-9]+)$"
+  ImageUri:
+    Type: String
+    Description: Image to run, pinned by digest
+  PermissionsBoundaryArn:
+    Type: String
+    Description: gha-serverless-libreoffice-<env>-boundary. The deploy roles can only create roles under it.
+
+Conditions:
+  IsMain: !Equals [!Ref Stage, main]
+
+Resources:
+  ConverterLogGroup:
+    Type: AWS::Logs::LogGroup
+    Condition: IsMain
+    # Deploy roles can't delete log groups, so a replace or stack delete MUST leave it behind.
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      LogGroupName: /aws/lambda/docx-to-pdf-converter
+      RetentionInDays: 365
+
+  # Shared by every PR stack. PR stacks MUST NOT own log groups: teardown can't delete them.
+  PrLogGroup:
+    Type: AWS::Logs::LogGroup
+    Condition: IsMain
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      LogGroupName: /aws/lambda/docx-to-pdf-converter-pr
+      RetentionInDays: 14
+
+  PrImageRepository:
+    Type: AWS::ECR::Repository
+    Condition: IsMain
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RepositoryName: docx-to-pdf-converter-pr
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      LifecyclePolicy:
+        LifecyclePolicyText: >-
+          {"rules":[{"rulePriority":1,"description":"PR images are only needed while the PR is open",
+          "selection":{"tagStatus":"any","countType":"sinceImagePushed","countUnit":"days","countNumber":14},
+          "action":{"type":"expire"}}]}
+
+  # Where the deploy checks upload the fixture and the converter writes the PDF. Deploy roles can't delete
+  # objects, so the lifecycle rule is the only cleanup.
+  PrFixturesBucket:
+    Type: AWS::S3::Bucket
+    Condition: IsMain
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub docx-to-pdf-converter-pr-fixtures-${AWS::AccountId}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-pr-fixtures
+            Status: Enabled
+            ExpirationInDays: 1
+
+  ConverterRole:
+    Type: AWS::IAM::Role
+    Properties:
+      # The production name and path come from the role the Lambda console created.
+      RoleName: !If [IsMain, docx-to-pdf-converter-role-s30byqzk, !Sub "docx-to-pdf-converter-${Stage}-role"]
+      Path: !If [IsMain, /service-role/, /]
+      PermissionsBoundary: !Ref PermissionsBoundaryArn
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      # Production keeps the console-made policy: logs plus the upload buckets callers pass in.
+      ManagedPolicyArns: !If
+        - IsMain
+        - - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/service-role/AWSLambdaBasicExecutionRole-735f5860-12b2-4d81-81b0-d5f23e7dbde0
+        - !Ref AWS::NoValue
+      # Every stage reads and writes the fixtures bucket, so deploy.yml can check production too.
+      Policies:
+        - PolicyName: !Sub docx-to-pdf-converter-${Stage}
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !If
+                  - IsMain
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/docx-to-pdf-converter:*
+                  - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/docx-to-pdf-converter-pr:*
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub arn:${AWS::Partition}:s3:::docx-to-pdf-converter-pr-fixtures-${AWS::AccountId}/*
+
+  ConverterFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !If [IsMain, docx-to-pdf-converter, !Sub "docx-to-pdf-converter-${Stage}"]
+      PackageType: Image
+      Code:
+        ImageUri: !Ref ImageUri
+      Architectures:
+        - x86_64
+      MemorySize: 3008
+      # LibreOffice unpacks its profile and the converted file into /tmp.
+      EphemeralStorage:
+        Size: 3008
+      Timeout: 45
+      Role: !GetAtt ConverterRole.Arn
+      LoggingConfig:
+        LogFormat: Text
+        LogGroup: !If [IsMain, /aws/lambda/docx-to-pdf-converter, /aws/lambda/docx-to-pdf-converter-pr]
+
+Outputs:
+  FunctionName:
+    Value: !Ref ConverterFunction

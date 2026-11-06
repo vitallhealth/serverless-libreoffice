@@ -1,0 +1,32 @@
+# Builds the Lambda image on pull requests. Nothing is pushed to ECR from here.
+name: CI
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx eslint handler.js
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build --platform linux/amd64 -t docx-to-pdf-converter:ci .
+      # Catches ESM/dependency resolution errors that only show up when Lambda loads the handler.
+      - name: Load handler in the image
+        run: >
+          docker run --rm --entrypoint node docx-to-pdf-converter:ci
+          -e "import('/var/task/handler.js').then((m) => { if (typeof m.handler !== 'function') process.exit(1); })"

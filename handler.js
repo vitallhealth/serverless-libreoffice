@@ -1,39 +1,54 @@
-const { writeFileSync, readFileSync } = require("fs");
-const {
-  convertTo,
-  canBeConvertedToPDF,
-} = require("@shelf/aws-lambda-libreoffice");
-const { S3 } = require("aws-sdk");
-const path = require("path");
+/**
+ * Lambda handler that converts a DOCX in S3 to PDF with LibreOffice and writes the PDF back
+ * to the same bucket. Runs in the lambda-libreoffice-base container image (see Dockerfile).
+ */
+import {
+  GetObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
+import { canBeConvertedToPDF, convertTo } from "@shelf/aws-lambda-libreoffice";
+import { readFileSync, writeFileSync } from "fs";
+import path from "path";
 
-module.exports.handler = async ({ bucket, key }) => {
-  const s3 = new S3({ params: { Bucket: bucket } });
+const s3 = new S3Client({});
 
-  const { Body: inputFileBuffer } = await s3.getObject({ Key: key }).promise();
-  const inputFilename = `/tmp/${key}`;
+/**
+ * Converts `s3://bucket/key` to PDF and uploads it to the bucket root as `<basename>.pdf`.
+ * @param event Invocation payload.
+ * @param event.bucket S3 bucket holding the source document.
+ * @param event.key S3 key of the `.docx` document.
+ * @returns The uploaded PDF's key, or `false` when the file type can't be converted.
+ * @throws When the S3 read/write fails or LibreOffice can't convert the file.
+ */
+// Lambda resolves the handler by export name, so it can't be a default export.
+// eslint-disable-next-line import/prefer-default-export
+export const handler = async ({ bucket, key }) => {
+  const { Body } = await s3.send(
+    new GetObjectCommand({ Bucket: bucket, Key: key })
+  );
+  const inputFileBuffer = await Body.transformToByteArray();
 
-  writeFileSync(inputFilename, inputFileBuffer);
-  // assuming there is a document.docx file inside /tmp dir
-  // original file will be deleted afterwards
+  // convertTo reads /tmp/<key>, deletes it afterwards and writes /tmp/<name>.pdf
+  writeFileSync(`/tmp/${key}`, inputFileBuffer);
 
-  // it is optional to invoke this function, you can skip it if you're sure about file format
   if (!canBeConvertedToPDF(key)) {
     return false;
   }
 
-  const outputFilename = convertTo(key, "pdf"); // returns /tmp/document.pdf
-
+  const outputFilename = await convertTo(key, "pdf");
   const outputFileBuffer = readFileSync(outputFilename);
 
   const pdfKey = `${path.basename(key, ".docx")}.pdf`;
 
-  await s3
-    .upload({
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: bucket,
       Key: pdfKey,
       Body: outputFileBuffer,
       ContentType: "application/pdf",
     })
-    .promise();
+  );
 
   return { Key: pdfKey };
 };
