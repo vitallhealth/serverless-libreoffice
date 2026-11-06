@@ -10,9 +10,12 @@ account=$(aws sts get-caller-identity --query Account --output text)
 bucket="docx-to-pdf-converter-pr-fixtures-$account"
 # The handler writes /tmp/<key> and puts the PDF at the bucket root, so the key MUST NOT contain a slash.
 name="$stage-${GITHUB_SHA:-$(git rev-parse HEAD)}"
-out=$(mktemp -d)
+# Kept for the workflow to upload, so a run's input and output can be opened afterwards.
+out=${VERIFY_OUT:-verify-output}
+rm -rf "$out" && mkdir -p "$out"
 
-aws s3api put-object --bucket "$bucket" --key "$name.docx" --body test/fixtures/convert.docx >/dev/null
+cp test/fixtures/convert.docx "$out/convert.docx"
+aws s3api put-object --bucket "$bucket" --key "$name.docx" --body "$out/convert.docx" >/dev/null
 jq -n --arg bucket "$bucket" --arg key "$name.docx" '{bucket: $bucket, key: $key}' >"$out/payload.json"
 aws lambda invoke \
   --function-name "$fn" \

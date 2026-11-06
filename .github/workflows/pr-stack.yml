@@ -39,6 +39,14 @@ jobs:
       - run: scripts/deploy-stack.sh "$STAGE" pr
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils
       - run: scripts/verify-stack.sh "docx-to-pdf-converter-$STAGE" "$STAGE"
+      # Kept for failed runs too: the PDF and raw response are the quickest way to see what went wrong.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verify-${{ env.STAGE }}-${{ github.sha }}
+          path: verify-output/
+          if-no-files-found: ignore
+          retention-days: 14
 
   teardown:
     if: >-
